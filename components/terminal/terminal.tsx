@@ -39,6 +39,47 @@ export function Terminal({
   const [fileContent, setFileContent] = useState<string[]>([])
   const [currentEditLine, setCurrentEditLine] = useState(-1)
 
+  // Function to safely encode content to base64, handling Unicode characters
+  const safeBase64Encode = (str: string) => {
+    try {
+      // First try standard base64 encoding
+      return btoa(str)
+    } catch (e) {
+      console.error("Standard base64 encoding failed, trying Unicode-safe method", e)
+      try {
+        // Use a Unicode-safe method
+        return btoa(
+          encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(Number.parseInt(p1, 16))),
+        )
+      } catch (e2) {
+        console.error("Unicode-safe encoding failed", e2)
+        throw new Error("Failed to encode content: " + e2.message)
+      }
+    }
+  }
+
+  const handleSaveFile = async (filename: string, content: string) => {
+    try {
+      const encodedContent = safeBase64Encode(content)
+      const output = await onCommand(`save ${filename} ${encodedContent}`)
+      setHistory((prev) => [...prev, { type: "output", content: output }])
+
+      // Exit edit mode
+      setEditMode(false)
+      setEditingFile("")
+      setFileContent([])
+      setCurrentEditLine(-1)
+    } catch (error) {
+      console.error("Error encoding file content:", error)
+      setHistory((prev) => [
+        ...prev,
+        { type: "output", content: `Error saving file: ${(error as Error).message || "Unknown error"}` },
+      ])
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     if (!input.trim() || isProcessing) return
@@ -69,14 +110,7 @@ export function Terminal({
         try {
           // Join the file content and send it to the backend
           const content = fileContent.join("\n")
-          const output = await onCommand(`save ${editingFile} ${btoa(content)}`)
-          setHistory((prev) => [...prev, { type: "output", content: output }])
-
-          // Exit edit mode
-          setEditMode(false)
-          setEditingFile("")
-          setFileContent([])
-          setCurrentEditLine(-1)
+          await handleSaveFile(editingFile, content)
         } catch (error) {
           setHistory((prev) => [
             ...prev,
@@ -201,9 +235,12 @@ export function Terminal({
     setIsProcessing(true)
 
     try {
+      console.log(`Executing command: ${command}`)
       const output = await onCommand(command)
+      console.log(`Command executed successfully`)
       setHistory((prev) => [...prev, { type: "output", content: output }])
     } catch (error) {
+      console.error("Error executing command:", error)
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
       setHistory((prev) => [...prev, { type: "output", content: `Error: ${errorMessage}` }])
     } finally {

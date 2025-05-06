@@ -1,6 +1,9 @@
 // This file handles the processing of commands entered in the terminal
 
 import { getLevelFileSystem } from "./level-service"
+// Import the validation functions
+import { validateLevelSolution } from "./js-validator"
+import * as FileSystem from "./file-system"
 
 interface CommandResult {
   output: string
@@ -8,12 +11,12 @@ interface CommandResult {
   skipToLevel?: number // Add this to allow skipping to a specific level
 }
 
-// Store user's current state
+// Initialize userState with proper structure
 const userState = {
   currentDirectory: "/",
   environmentVariables: {},
-  fileContents: {}, // Store edited file contents
-  commandHistory: [],
+  fileContents: {} as Record<string, string>, // Initialize as empty object
+  commandHistory: [] as string[],
   // Track extracted files for level 5
   extractedFiles: {} as Record<string, string>,
   // Track level-specific state
@@ -53,7 +56,26 @@ const userState = {
   },
 }
 
+// Make sure fileContents is initialized
+if (!userState.fileContents) {
+  console.log("[INIT] Initializing userState.fileContents as empty object")
+  userState.fileContents = {}
+}
+
+console.log("[INIT] Initial userState.fileContents:", userState.fileContents)
+
 export async function processCommand(command: string, level: number, levelData: any): Promise<CommandResult> {
+  console.log(`[CMD] Processing command: ${command}, level: ${level}`)
+  console.log(`[CMD] userState.fileContents type: ${typeof userState.fileContents}`)
+  console.log(`[CMD] userState.fileContents defined: ${userState.fileContents !== undefined}`)
+  console.log(`[CMD] userState.fileContents null: ${userState.fileContents === null}`)
+
+  // Add this safety check at the beginning
+  if (userState.fileContents === undefined || userState.fileContents === null) {
+    console.log("[CMD] Reinitializing userState.fileContents as it was undefined or null")
+    userState.fileContents = {}
+  }
+
   try {
     // Add command to history
     userState.commandHistory.push(command)
@@ -67,6 +89,8 @@ export async function processCommand(command: string, level: number, levelData: 
     const parts = command.trim().split(/\s+/)
     const cmd = parts[0].toLowerCase()
     const args = parts.slice(1)
+
+    console.log(`[CMD] Command: ${cmd}, Args: ${JSON.stringify(args)}`)
 
     // Special hidden moderator command to skip levels
     if (cmd === "mod_skip" || cmd === "!skip") {
@@ -87,24 +111,96 @@ export async function processCommand(command: string, level: number, levelData: 
 
     // Get the file system for this level
     const fileSystem = getLevelFileSystem(level)
+    console.log(`[CMD] File system for level ${level}:`, fileSystem)
 
     // Common commands available across all levels
     switch (cmd) {
       // Handle save command (special command from the frontend)
       case "save":
+        console.log(`[SAVE] Starting save command with args: ${JSON.stringify(args)}`)
+        console.log(`[SAVE] userState.fileContents type: ${typeof userState.fileContents}`)
+        console.log(`[SAVE] userState.fileContents defined: ${userState.fileContents !== undefined}`)
+
         if (args.length >= 2) {
           const filename = args[0]
           const contentBase64 = args.slice(1).join(" ")
 
-          try {
-            // Decode the base64 content
-            const content = atob(contentBase64)
+          console.log(`[SAVE] Filename: ${filename}, Content length: ${contentBase64.length}`)
 
-            // Save the content
+          if (!filename) {
+            console.log(`[SAVE] Error: Invalid filename`)
+            return {
+              output: "Error: Invalid filename",
+              levelCompleted: false,
+            }
+          }
+
+          try {
+            console.log(`[SAVE] Attempting to decode and save file: ${filename}`)
+
+            // Decode the base64 content with Unicode support
+            let content
+            try {
+              // First try standard base64 decoding
+              content = atob(contentBase64)
+            } catch (e) {
+              console.log(`[SAVE] Standard base64 decoding failed, trying Unicode-safe method`)
+              // If that fails, try a Unicode-safe method
+              try {
+                // This handles Unicode characters by decoding the percent-encoded string
+                content = decodeURIComponent(
+                  Array.prototype.map
+                    .call(
+                      atob(contentBase64.replace(/-/g, "+").replace(/_/g, "/")),
+                      (c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2),
+                    )
+                    .join(""),
+                )
+              } catch (e2) {
+                // If all decoding fails, just use the raw content
+                console.log(`[SAVE] Unicode-safe method failed, using raw content`)
+                content = contentBase64
+              }
+            }
+
+            console.log(`[SAVE] Decoded content length: ${content.length}`)
+
+            // Save the content using the file system utility
+            console.log(`[SAVE] Calling FileSystem.saveFile`)
+            FileSystem.saveFile(filename, content)
+            console.log(`[SAVE] FileSystem.saveFile completed`)
+
+            // Make absolutely sure fileContents is initialized
+            if (userState.fileContents === undefined || userState.fileContents === null) {
+              console.log(
+                `[SAVE] userState.fileContents is ${userState.fileContents === undefined ? "undefined" : "null"}, reinitializing`,
+              )
+              userState.fileContents = {}
+            }
+
+            console.log(
+              `[SAVE] Before setting userState.fileContents[${filename}], userState.fileContents:`,
+              userState.fileContents,
+            )
+
+            // Create a new object if needed to avoid reference issues
+            if (typeof userState.fileContents !== "object" || userState.fileContents === null) {
+              userState.fileContents = {}
+            }
+
+            // Now it's safe to set the property
             userState.fileContents[filename] = content
+
+            console.log(
+              `[SAVE] After setting userState.fileContents[${filename}], userState.fileContents:`,
+              userState.fileContents,
+            )
+
+            console.log(`[SAVE] File ${filename} saved with content length: ${content.length}`)
 
             // Check if this completes level 10
             if (level === 10 && filename === "script.js" && content.includes("return a + b")) {
+              console.log(`[SAVE] Level 10 script edited correctly`)
               userState.levelState[10].scriptEdited = true
               return {
                 output: `File ${filename} saved successfully.`,
@@ -117,12 +213,14 @@ export async function processCommand(command: string, level: number, levelData: 
               levelCompleted: false,
             }
           } catch (error) {
+            console.error(`[SAVE] Error saving file:`, error)
             return {
               output: `Error saving file: ${error}`,
               levelCompleted: false,
             }
           }
         }
+        console.log(`[SAVE] Invalid save command format`)
         return {
           output: "Invalid save command format",
           levelCompleted: false,
@@ -197,6 +295,7 @@ export async function processCommand(command: string, level: number, levelData: 
 
       case "edit":
       case "sudo":
+        console.log(`[EDIT] Starting edit command with args: ${JSON.stringify(args)}`)
         if (cmd === "sudo" && args[0] === "edit" && args.length > 1) {
           return handleEditCommand(args.slice(1), level)
         } else if (cmd === "edit" && args.length > 0) {
@@ -208,6 +307,7 @@ export async function processCommand(command: string, level: number, levelData: 
         }
 
       case "node":
+        console.log(`[NODE] Starting node command with args: ${JSON.stringify(args)}`)
         return handleNodeCommand(args, level)
 
       case "python":
@@ -244,7 +344,7 @@ export async function processCommand(command: string, level: number, levelData: 
       levelCompleted: false,
     }
   } catch (error) {
-    console.error("Error processing command:", error)
+    console.error("[CMD] Error processing command:", error)
     return {
       output: `An error occurred while processing your command: ${error instanceof Error ? error.message : "Unknown error"}`,
       levelCompleted: false,
@@ -383,6 +483,9 @@ function getHelpText(level: number, levelData: any, command: string): string {
 
 // Handle ls command
 function handleLsCommand(args: string[], fileSystem: any, level: number): CommandResult {
+  console.log(`[LS] Starting handleLsCommand with args: ${JSON.stringify(args)}, level: ${level}`)
+  console.log(`[LS] fileSystem:`, fileSystem)
+
   const showHidden = args.includes("-a") || args.includes("--all")
   const showDetails = args.includes("-l")
 
@@ -394,8 +497,11 @@ function handleLsCommand(args: string[], fileSystem: any, level: number): Comman
     }
   })
 
+  console.log(`[LS] Path: ${path}, showHidden: ${showHidden}, showDetails: ${showDetails}`)
+
   // Check if the path exists
   if (!fileSystem[path]) {
+    console.log(`[LS] Path ${path} does not exist in fileSystem`)
     return {
       output: `ls: cannot access '${path}': No such file or directory`,
       levelCompleted: false,
@@ -403,7 +509,9 @@ function handleLsCommand(args: string[], fileSystem: any, level: number): Comman
   }
 
   // Get files in the directory
+  console.log(`[LS] Getting files in directory ${path}:`, fileSystem[path])
   const files = Object.keys(fileSystem[path]).filter((file) => showHidden || !file.startsWith("."))
+  console.log(`[LS] Files after filtering:`, files)
 
   // Add extracted files for level 5
   if (level === 5 && path === "/" && userState.levelState[5].archiveExtracted) {
@@ -441,6 +549,8 @@ function handleLsCommand(args: string[], fileSystem: any, level: number): Comman
 
 // Handle cat command
 function handleCatCommand(args: string[], fileSystem: any, level: number, levelData: any): CommandResult {
+  console.log(`[CAT] Starting handleCatCommand with args: ${JSON.stringify(args)}, level: ${level}`)
+
   if (args.length === 0) {
     return {
       output: "Usage: cat [filename]\nDisplays the contents of a file.",
@@ -449,9 +559,20 @@ function handleCatCommand(args: string[], fileSystem: any, level: number, levelD
   }
 
   const filename = args[0]
+  console.log(`[CAT] Reading file: ${filename}`)
 
   // Check if the file has been edited by the user
+  // Ensure fileContents is initialized
+  if (!userState.fileContents) {
+    console.log(`[CAT] userState.fileContents is undefined, initializing`)
+    userState.fileContents = {}
+  }
+
+  console.log(`[CAT] userState.fileContents:`, userState.fileContents)
+  console.log(`[CAT] File exists in userState.fileContents: ${filename in userState.fileContents}`)
+
   if (userState.fileContents[filename]) {
+    console.log(`[CAT] Found file in userState.fileContents: ${filename}`)
     if (level === 10 && filename === "script.js") {
       // Check if the script has been fixed
       if (userState.fileContents[filename].includes("return a + b")) {
@@ -464,6 +585,19 @@ function handleCatCommand(args: string[], fileSystem: any, level: number, levelD
     return {
       output: userState.fileContents[filename],
       levelCompleted: false,
+    }
+  }
+
+  // Check if the file exists in the FileSystem utility
+  console.log(`[CAT] Checking if file exists in FileSystem: ${filename}`)
+  if (FileSystem.fileExists(filename)) {
+    console.log(`[CAT] File exists in FileSystem: ${filename}`)
+    const content = FileSystem.getFile(filename)
+    if (content) {
+      return {
+        output: content,
+        levelCompleted: false,
+      }
     }
   }
 
@@ -507,7 +641,11 @@ function handleCatCommand(args: string[], fileSystem: any, level: number, levelD
 
   // Default case for files in the root directory
   const path = "/"
-  if (!fileSystem[path][filename]) {
+  console.log(`[CAT] Checking if file exists in fileSystem[${path}]: ${filename}`)
+  console.log(`[CAT] fileSystem[${path}]:`, fileSystem[path])
+
+  if (!fileSystem[path] || !fileSystem[path][filename]) {
+    console.log(`[CAT] File ${filename} not found in fileSystem[${path}]`)
     return {
       output: `cat: ${filename}: No such file or directory`,
       levelCompleted: false,
@@ -561,6 +699,7 @@ function handleCatCommand(args: string[], fileSystem: any, level: number, levelD
     }
   }
 
+  console.log(`[CAT] Returning file content for ${filename}:`, fileSystem[path][filename])
   return {
     output: fileSystem[path][filename],
     levelCompleted: false,
@@ -581,7 +720,7 @@ function handleChmodCommand(args: string[], fileSystem: any, level: number): Com
 
   // Check if file exists
   const path = "/"
-  if (!fileSystem[path][filename]) {
+  if (!fileSystem[path] || !fileSystem[path][filename]) {
     return {
       output: `chmod: cannot access '${filename}': No such file or directory`,
       levelCompleted: false,
@@ -746,6 +885,10 @@ function handleExportCommand(args: string[], level: number): CommandResult {
 
 // Handle edit command
 function handleEditCommand(args: string[], level: number): CommandResult {
+  console.log(`[EDIT] Starting handleEditCommand with args: ${JSON.stringify(args)}`)
+  console.log(`[EDIT] userState.fileContents type: ${typeof userState.fileContents}`)
+  console.log(`[EDIT] userState.fileContents defined: ${userState.fileContents !== undefined}`)
+
   if (args.length === 0) {
     return {
       output: "Usage: edit [filename]\nOpens a text editor to edit a file.",
@@ -754,15 +897,32 @@ function handleEditCommand(args: string[], level: number): CommandResult {
   }
 
   const filename = args[0]
+  console.log(`[EDIT] Editing file: ${filename}`)
 
   // Get initial content if file exists
   const fileSystem = getLevelFileSystem(level)
   let initialContent = ""
 
-  if (userState.fileContents[filename]) {
+  // Ensure fileContents is initialized
+  if (!userState.fileContents) {
+    console.log(`[EDIT] userState.fileContents is undefined, initializing`)
+    userState.fileContents = {}
+  }
+
+  // Check if file exists in memory
+  console.log(`[EDIT] Checking if file exists in FileSystem: ${filename}`)
+  if (FileSystem.fileExists(filename)) {
+    console.log(`[EDIT] File exists in FileSystem: ${filename}`)
+    initialContent = FileSystem.getFile(filename) || ""
+    console.log(`[EDIT] Retrieved content from FileSystem, length: ${initialContent.length}`)
+  } else if (userState.fileContents[filename]) {
+    console.log(`[EDIT] File exists in userState.fileContents: ${filename}`)
     initialContent = userState.fileContents[filename]
+    console.log(`[EDIT] Retrieved content from userState.fileContents, length: ${initialContent.length}`)
   } else if (fileSystem["/"] && fileSystem["/"][filename]) {
+    console.log(`[EDIT] File exists in fileSystem[/]: ${filename}`)
     initialContent = fileSystem["/"][filename]
+    console.log(`[EDIT] Retrieved content from fileSystem[/], length: ${initialContent.length}`)
   } else if (level === 12 && filename === "parse.js") {
     // Check if data.json has been viewed
     if (!userState.levelState[12].dataJsonViewed) {
@@ -784,6 +944,7 @@ const fs = require('fs');
 // 3. Find the admin user
 // 4. Extract and print the password
 `
+    console.log(`[EDIT] Created template for parse.js, length: ${initialContent.length}`)
   } else if (level === 13 && filename === "regex.js") {
     // Check if text.txt has been viewed
     if (!userState.levelState[13].textFileViewed) {
@@ -804,6 +965,7 @@ const fs = require('fs');
 // 2. Create regex patterns for email and phone
 // 3. Extract and print the matches
 `
+    console.log(`[EDIT] Created template for regex.js, length: ${initialContent.length}`)
   } else if (level === 11 && filename === "array.js") {
     initialContent = `// Create a script that reverses an array
 // 1. Define an array with some elements
@@ -817,10 +979,12 @@ console.log('Original array:', numbers);
 // TODO: Add code to reverse the array using numbers.reverse()
 console.log('Reversed array:', numbers);
 `
+    console.log(`[EDIT] Created template for array.js, length: ${initialContent.length}`)
   }
 
   // For level 10, add a hint
   if (level === 10 && filename === "script.js") {
+    console.log(`[EDIT] Level 10 script.js with hint`)
     return {
       output: initialContent + "\n\nHint: The add function has a bug. It should add numbers, not subtract them.",
       levelCompleted: false,
@@ -835,6 +999,10 @@ console.log('Reversed array:', numbers);
 
 // Handle node command
 function handleNodeCommand(args: string[], level: number): CommandResult {
+  console.log(`[NODE] Starting handleNodeCommand with args: ${JSON.stringify(args)}`)
+  console.log(`[NODE] userState.fileContents type: ${typeof userState.fileContents}`)
+  console.log(`[NODE] userState.fileContents defined: ${userState.fileContents !== undefined}`)
+
   if (args.length === 0) {
     return {
       output: "Usage: node [filename]\nRuns a JavaScript file.\nExample: node script.js",
@@ -843,131 +1011,152 @@ function handleNodeCommand(args: string[], level: number): CommandResult {
   }
 
   const filename = args[0]
+  console.log(`[NODE] Running file: ${filename}`)
 
-  // Check if the file has been edited by the user
-  if (userState.fileContents[filename]) {
-    if (level === 10 && filename === "script.js") {
-      // Check if the script has been fixed - ignore spacing
-      const content = userState.fileContents[filename]
-      const noSpaces = content.replace(/\s+/g, "")
+  // Ensure fileContents is initialized
+  if (!userState.fileContents) {
+    console.log(`[NODE] userState.fileContents is undefined, initializing`)
+    userState.fileContents = {}
+  }
 
-      if (noSpaces.includes("returna+b")) {
-        // Extract the arguments from the console.log call
-        const match = content.match(/console\.log$$add$$(\d+),\s*(\d+)$$$$/)
-        let a = 5,
-          b = 3 // Default values
+  // Check if the file exists in the file system
+  console.log(`[NODE] Checking if file exists in FileSystem: ${filename}`)
+  if (FileSystem.fileExists(filename)) {
+    console.log(`[NODE] File exists in FileSystem: ${filename}`)
+    const code = FileSystem.getFile(filename) || ""
+    console.log(`[NODE] Retrieved code from FileSystem, length: ${code.length}`)
 
-        if (match && match.length >= 3) {
-          a = Number.parseInt(match[1], 10)
-          b = Number.parseInt(match[2], 10)
-        }
+    try {
+      // Validate the code
+      console.log(`[NODE] Calling validateLevelSolution for level ${level}`)
+      const validation = validateLevelSolution(level, code)
+      console.log(`[NODE] Validation result: ${JSON.stringify(validation)}`)
 
-        // Calculate the actual result
-        const result = a + b
-
+      if (!validation.isValid) {
         return {
-          output: `Running script.js...\nOutput: ${result}\n\nExcellent! You've successfully fixed the add function. It now correctly returns a + b instead of a - b.`,
-          levelCompleted: true,
-        }
-      } else {
-        return {
-          output:
-            "Running script.js...\nOutput: 2\n\nThe function still doesn't work correctly. It should add the numbers, not subtract them. Use 'edit script.js' to edit it again.",
+          output: `Error running ${filename}: ${validation.feedback}`,
           levelCompleted: false,
         }
       }
-    } else if (level === 12 && filename === "parse.js") {
-      // Check if the script correctly parses JSON - more thorough check
-      const content = userState.fileContents[filename]
-      const noSpaces = content.replace(/\s+/g, "")
-      if (
-        content.includes("JSON.parse") &&
-        content.includes("data.json") &&
-        (content.includes("admin") || content.includes("users")) &&
-        (content.includes("password") || noSpaces.includes("password"))
-      ) {
-        return {
-          output:
-            "Running parse.js...\nParsing data.json...\nAdmin password: s3cur3!\n\nGreat job! You've successfully parsed the JSON data and extracted the admin password.",
-          levelCompleted: true,
+
+      // Level-specific handling
+      if (level === 10 && filename === "script.js") {
+        // Extract the parameters from console.log(add(...))
+        const consoleLogMatch = code.match(/console\.log$$add\((\d+),\s*(\d+)$$\)/)
+        let param1 = 5
+        let param2 = 3
+        let expectedResult = 8
+
+        if (consoleLogMatch && consoleLogMatch.length >= 3) {
+          param1 = Number.parseInt(consoleLogMatch[1], 10)
+          param2 = Number.parseInt(consoleLogMatch[2], 10)
+          expectedResult = param1 + param2
         }
-      } else {
-        return {
-          output:
-            "Running parse.js...\nError: Your script doesn't correctly parse the JSON or extract the admin password.\nMake sure to use JSON.parse() and access the users array to find the admin user.",
-          levelCompleted: false,
-        }
-      }
-    } else if (level === 13 && filename === "regex.js") {
-      // Check if the script correctly uses regex
-      const content = userState.fileContents[filename]
-      if (
-        content.includes("match") ||
-        content.includes("exec") ||
-        content.includes("test") ||
-        content.includes("search") ||
-        content.includes("replace")
-      ) {
-        if (
-          (content.includes("@") || content.includes("\\w+@\\w+")) &&
-          (content.includes("\\d{3}") || content.includes("555-"))
-        ) {
+
+        if (validation.meetsRequirements) {
           return {
-            output:
-              "Running regex.js...\nExtracting patterns from text.txt...\nFound email: admin@example.com\nFound phone: 555-123-4567\n\nExcellent! You've successfully extracted both the email and phone number using regular expressions.",
+            output: `Running script.js...\nOutput: ${expectedResult}\n\n${validation.feedback}`,
             levelCompleted: true,
           }
         } else {
           return {
-            output:
-              "Running regex.js...\nYour script is using regex, but it doesn't correctly extract both the email and phone number.\nMake sure to create patterns that match email (something@example.com) and phone (555-123-4567) formats.",
+            output: `Running script.js...\nOutput: ${param1 - param2}\n\n${validation.feedback}`,
             levelCompleted: false,
           }
         }
-      } else {
-        return {
-          output:
-            "Running regex.js...\nError: Your script doesn't appear to use regular expressions.\nMake sure to use regex patterns with methods like match() or exec() to extract the patterns.",
-          levelCompleted: false,
-        }
-      }
-    } else if (level === 11 && filename === "array.js") {
-      // Check if the file has been edited by the user
-      if (userState.fileContents[filename]) {
-        // Check if the file content includes array.reverse() - more thorough check
-        const content = userState.fileContents[filename]
-        // Check specifically for numbers.reverse() with proper syntax
-        if (content.includes("numbers.reverse()") || content.match(/numbers\s*\.\s*reverse\s*$$\s*$$/)) {
+      } else if (level === 11 && filename === "array.js") {
+        if (validation.meetsRequirements) {
           return {
-            output:
-              "Running array.js...\nOriginal array: [1, 2, 3, 4, 5]\nReversed array: [5, 4, 3, 2, 1]\n\nGreat job! You've successfully used the array.reverse() method to reverse the array.",
+            output: `Running array.js...\nOriginal array: [1, 2, 3, 4, 5]\nReversed array: [5, 4, 3, 2, 1]\n\n${validation.feedback}`,
             levelCompleted: true,
           }
         } else {
           return {
-            output:
-              "Running array.js...\nOriginal array: [1, 2, 3, 4, 5]\nArray not reversed: [1, 2, 3, 4, 5]\n\nThe array hasn't been reversed correctly. Make sure to use 'numbers.reverse()' to reverse the array. Edit the file with 'sudo edit array.js'.",
+            output: `Running array.js...\nOriginal array: [1, 2, 3, 4, 5]\nArray not reversed: [1, 2, 3, 4, 5]\n\n${validation.feedback}`,
             levelCompleted: false,
           }
         }
-      } else {
-        // If the user hasn't edited the file yet
-        return {
-          output:
-            "Running array.js...\nOriginal array: [1, 2, 3, 4, 5]\nArray not reversed: [1, 2, 3, 4, 5]\n\nThe array hasn't been reversed. Edit the file with 'sudo edit array.js' and add the array.reverse() method.",
-          levelCompleted: false,
+      } else if (level === 12 && filename === "parse.js") {
+        if (validation.meetsRequirements) {
+          return {
+            output: `Running parse.js...\nParsing data.json...\nAdmin password: s3cur3!\n\n${validation.feedback}`,
+            levelCompleted: true,
+          }
+        } else {
+          return {
+            output: `Running parse.js...\n${validation.feedback}`,
+            levelCompleted: false,
+          }
+        }
+      } else if (level === 13 && filename === "regex.js") {
+        if (validation.meetsRequirements) {
+          return {
+            output: `Running regex.js...\nExtracting patterns from text.txt...\nFound email: admin@example.com\nFound phone: 555-123-4567\n\n${validation.feedback}`,
+            levelCompleted: true,
+          }
+        } else {
+          return {
+            output: `Running regex.js...\n${validation.feedback}`,
+            levelCompleted: false,
+          }
         }
       }
-    } else if (level === 11 && filename !== "array.js") {
+    } catch (error) {
+      console.error(`[NODE] Error during validation process for ${filename}:`, error)
       return {
-        output:
-          "For this level, you need to work with the array.js file. Use 'sudo edit array.js' to edit it and 'node array.js' to run it.",
+        output: `Error running ${filename}: An error occurred during validation. See console for details.`,
         levelCompleted: false,
       }
-    } else if (level === 11 && filename === "script.js") {
+    }
+  } else if (userState.fileContents[filename]) {
+    // Check if the file has been edited by the user
+    console.log(`[NODE] File exists in userState.fileContents: ${filename}`)
+    const code = userState.fileContents[filename]
+    console.log(`[NODE] Retrieved code from userState.fileContents, length: ${code.length}`)
+
+    try {
+      // Validate the code
+      console.log(`[NODE] Calling validateLevelSolution for level ${level}`)
+      const validation = validateLevelSolution(level, code)
+      console.log(`[NODE] Validation result: ${JSON.stringify(validation)}`)
+
+      if (!validation.isValid) {
+        return {
+          output: `Error running ${filename}: ${validation.feedback}`,
+          levelCompleted: false,
+        }
+      }
+
+      // Level-specific handling
+      if (level === 10 && filename === "script.js") {
+        // Extract the parameters from console.log(add(...))
+        const consoleLogMatch = code.match(/console\.log$$add\((\d+),\s*(\d+)$$\)/)
+        let param1 = 5
+        let param2 = 3
+        let expectedResult = 8
+
+        if (consoleLogMatch && consoleLogMatch.length >= 3) {
+          param1 = Number.parseInt(consoleLogMatch[1], 10)
+          param2 = Number.parseInt(consoleLogMatch[2], 10)
+          expectedResult = param1 + param2
+        }
+
+        if (validation.meetsRequirements) {
+          return {
+            output: `Running script.js...\nOutput: ${expectedResult}\n\n${validation.feedback}`,
+            levelCompleted: true,
+          }
+        } else {
+          return {
+            output: `Running script.js...\nOutput: ${param1 - param2}\n\n${validation.feedback}`,
+            levelCompleted: false,
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`[NODE] Error during validation process for ${filename}:`, error)
       return {
-        output:
-          "For this level, you should create a new file called array.js that reverses an array. Use 'edit array.js' to create it.",
+        output: `Error running ${filename}: An error occurred during validation. See console for details.`,
         levelCompleted: false,
       }
     }
@@ -975,6 +1164,7 @@ function handleNodeCommand(args: string[], level: number): CommandResult {
 
   if (level === 10 && filename === "script.js") {
     // Check if script has been edited
+    console.log(`[NODE] Level 10 script.js check, scriptEdited: ${userState.levelState[10].scriptEdited}`)
     if (!userState.levelState[10].scriptEdited) {
       return {
         output:
@@ -982,9 +1172,22 @@ function handleNodeCommand(args: string[], level: number): CommandResult {
         levelCompleted: false,
       }
     }
+
+    // Extract the parameters from the saved script
+    const code = userState.fileContents["script.js"] || ""
+    const consoleLogMatch = code.match(/console\.log$$add\((\d+),\s*(\d+)$$\)/)
+    let param1 = 5
+    let param2 = 3
+    let expectedResult = 8
+
+    if (consoleLogMatch && consoleLogMatch.length >= 3) {
+      param1 = Number.parseInt(consoleLogMatch[1], 10)
+      param2 = Number.parseInt(consoleLogMatch[2], 10)
+      expectedResult = param1 + param2
+    }
+
     return {
-      output:
-        "Running script.js...\nOutput: 8\n\nExcellent! You've successfully fixed the add function. It now correctly returns a + b instead of a - b.",
+      output: `Running script.js...\nOutput: ${expectedResult}\n\nExcellent! You've successfully fixed the add function. It now correctly returns a + b instead of a - b.`,
       levelCompleted: true,
     }
   } else if (level === 11 && filename === "script.js") {

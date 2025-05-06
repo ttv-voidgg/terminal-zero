@@ -142,62 +142,87 @@ export function getLevelData(level: number): Level {
     10: {
       id: 10,
       title: "Debugging Code",
-      description: "Programmers often need to fix bugs in code. Your task is to fix a broken JavaScript function.",
+      description:
+        "Programmers often need to fix bugs in code. Your task is to fix a broken JavaScript function that should add two numbers but is incorrectly subtracting them.",
       track: "Terminal Basics",
-      objectives: ["Edit script.js to fix the add function", "Run the script to verify it works"],
-      hints: [
-        "Use 'sudo edit script.js' to edit the file",
-        "The function should return a + b, not a - b",
-        "After fixing, run with 'node script.js'",
+      objectives: [
+        "Use 'sudo edit script.js' to open the file for editing",
+        "Find and fix the bug in the add function (it's subtracting instead of adding)",
+        "Save your changes and run the script with 'node script.js' to verify it works",
       ],
-      commands: ["help", "ls", "cat", "sudo", "nano", "node", "clear"],
+      hints: [
+        "Look for the line 'return a - b' in the add function",
+        "Change the minus sign (-) to a plus sign (+)",
+        "After fixing, save with the 'save' command and exit the editor",
+        "Run the script with 'node script.js' to test your fix",
+      ],
+      commands: ["help", "ls", "cat", "sudo", "edit", "node", "clear"],
       successCondition: "Fix the add function and run the script",
     },
     11: {
       id: 11,
       title: "JavaScript Arrays",
       description:
-        "Learn to manipulate arrays in JavaScript. Your task is to fix a script that should reverse an array.",
+        "Arrays are fundamental data structures in programming. Your task is to use the built-in array.reverse() method to reverse an array of numbers.",
       track: "Programming Logic",
-      objectives: ["Edit array.js to use the array.reverse() method", "Run the script to verify it works"],
+      objectives: [
+        "Use 'sudo edit array.js' to open the file for editing",
+        "Add the code to reverse the array using the array.reverse() method",
+        "Save your changes and run the script with 'node array.js' to verify it works",
+      ],
       hints: [
-        "Use 'sudo edit array.js' to edit the file",
-        "Find the line where you need to reverse the array",
-        "Use the array.reverse() method to reverse the array",
-        "After fixing, run with 'node array.js'",
+        "Find the TODO comment in the file where you need to add your code",
+        "Add the line 'numbers.reverse();' where indicated",
+        "After adding the code, save with the 'save' command and exit the editor",
+        "Run the script with 'node array.js' to test your solution",
       ],
       commands: ["help", "ls", "cat", "sudo", "edit", "node", "clear"],
-      successCondition: "Fix the array reversal and run the script",
+      successCondition: "Use array.reverse() to reverse the array and run the script",
     },
     12: {
       id: 12,
       title: "JSON Parsing",
-      description: "Parse a JSON file to extract sensitive information.",
+      description:
+        "JSON (JavaScript Object Notation) is a common data format. Your task is to write code that parses a JSON file and extracts specific information.",
       track: "Programming Logic",
-      objectives: ["Write code to parse data.json", "Extract the admin password"],
-      hints: [
-        "Use 'cat data.json' to view the JSON data",
-        "Create a script that uses JSON.parse()",
-        "Look for the admin user in the users array",
-        "Run your script with 'node parse.js'",
+      objectives: [
+        "Use 'cat data.json' to view the JSON data structure",
+        "Use 'sudo edit parse.js' to create a script that parses data.json",
+        "Extract the admin password from the users array",
+        "Run your script with 'node parse.js' to verify it works",
       ],
-      commands: ["help", "ls", "cat", "node", "clear", "nano"],
+      hints: [
+        "First use 'fs.readFileSync()' to read the file contents",
+        "Then use 'JSON.parse()' to convert the string to a JavaScript object",
+        "Look for the user with username 'admin' in the users array",
+        "Extract and display the password for that user",
+        "The file has TODO comments to guide you through each step",
+      ],
+      commands: ["help", "ls", "cat", "sudo", "edit", "node", "clear"],
       successCondition: "Extract the admin password from data.json",
     },
     13: {
       id: 13,
       title: "Regular Expressions",
-      description: "Use regular expressions to extract information from text.",
+      description:
+        "Regular expressions (regex) are powerful patterns for matching text. Your task is to use regex to extract an email address and phone number from text.",
       track: "Programming Logic",
-      objectives: ["Extract an email address and phone number from text"],
-      hints: [
-        "Use 'cat text.txt' to view the text",
-        "Create a regex for email addresses like /\\w+@\\w+\\.\\w+/",
-        "Create a regex for phone numbers like /\\d{3}-\\d{3}-\\d{4}/",
-        "Use 'extract' or 'regex' command with the patterns",
+      objectives: [
+        "Use 'cat text.txt' to view the text containing an email and phone number",
+        "Use 'cat regex-guide.txt' to learn about regular expressions",
+        "Use 'sudo edit regex.js' to create a script that extracts the patterns",
+        "Run your script with 'node regex.js' to verify it works",
       ],
-      commands: ["help", "ls", "cat", "extract", "regex", "clear", "nano", "node"],
-      successCondition: "Extract both the email and phone number",
+      hints: [
+        "Create a regex pattern for email addresses (something@domain.com)",
+        "Create another pattern for phone numbers (555-123-4567)",
+        "Use string.match() or regex.exec() to find the matches",
+        "Display both the email and phone number you extracted",
+        "The file has TODO comments to guide you through each step",
+        "Check regex-guide.txt for examples and patterns",
+      ],
+      commands: ["help", "ls", "cat", "sudo", "edit", "node", "clear"],
+      successCondition: "Extract both the email and phone number from text.txt",
     },
     14: {
       id: 14,
@@ -854,6 +879,8 @@ export function getLevelData(level: number): Level {
 
 // Get the file system for a specific level
 export function getLevelFileSystem(level: number): Record<string, any> {
+  console.log(`[LEVEL-FS] Getting file system for level ${level}`)
+
   // Define file systems for each level
   const fileSystems: Record<number, Record<string, any>> = {
     1: {
@@ -931,7 +958,7 @@ export function getLevelFileSystem(level: number): Record<string, any> {
         "readme.txt": "Level 10: Fix a broken JavaScript function.",
         "script.js":
           "function add(a, b) {\n  return a - b; // This is wrong, should be a + b\n}\n\nconsole.log(add(5, 3)); // Should output 8, but currently outputs 2",
-        "hint.txt": "Use sudo nano script.js to edit the file. The add function should add numbers, not subtract them.",
+        "hint.txt": "Use sudo edit script.js to edit the file. The add function should add numbers, not subtract them.",
       },
     },
     11: {
@@ -961,6 +988,232 @@ export function getLevelFileSystem(level: number): Record<string, any> {
     },
     // Add more file systems for other levels
   }
+
+  // Update the file system for level 10 with a better template
+  if (level === 10) {
+    fileSystems[10] = {
+      "/": {
+        "readme.txt": "Level 10: Fix a broken JavaScript function.",
+        "script.js": `// Level 10: Fix the add function
+// This script has a bug in the add function - it's subtracting instead of adding!
+
+/**
+ * Adds two numbers together
+ * @param {number} a - The first number
+ * @param {number} b - The second number
+ * @returns {number} The sum of a and b
+ */
+function add(a, b) {
+  // TODO: Fix this line to properly add the numbers
+  return a - b; // This is wrong! It should add, not subtract
+}
+
+// Test the function
+console.log(add(5, 3)); // Should output 8, but currently outputs 2
+
+// Don't modify below this line
+// ============================
+// This code will test your solution
+console.log("Testing add function...");
+if (add(5, 3) === 8) {
+  console.log("Test passed! 5 + 3 = 8");
+} else {
+  console.log("Test failed! 5 + 3 should equal 8, but got", add(5, 3));
+}
+`,
+        "hint.txt": "Use sudo edit script.js to edit the file. The add function should add numbers, not subtract them.",
+      },
+    }
+  }
+
+  // Update the file system for level 11 with a better template
+  if (level === 11) {
+    fileSystems[11] = {
+      "/": {
+        "readme.txt": "Level 11: JavaScript Arrays. Edit array.js to reverse the array.",
+        "array.js": `// Level 11: JavaScript Arrays
+// This script should reverse an array using the built-in reverse() method
+
+// Our array of numbers
+const numbers = [1, 2, 3, 4, 5];
+
+// Display the original array
+console.log('Original array:', numbers);
+
+// TODO: Add code below to reverse the array using the array.reverse() method
+// Write your code here:
+
+
+// Display the reversed array
+console.log('Reversed array:', numbers);
+
+// Don't modify below this line
+// ============================
+// This code will test your solution
+console.log("Testing array reversal...");
+if (numbers.toString() === "5,4,3,2,1") {
+  console.log("Test passed! Array successfully reversed");
+} else {
+  console.log("Test failed! Array should be [5,4,3,2,1], but got", numbers);
+}
+`,
+        "hint.txt": "Use the array.reverse() method to reverse the array in place.",
+      },
+    }
+  }
+
+  // Update the file system for level 12 with a better template
+  if (level === 12) {
+    fileSystems[12] = {
+      "/": {
+        "readme.txt": "Level 12: Parse JSON data.",
+        "data.json": `{
+  "users": [
+    {"username": "guest", "password": "guest123"},
+    {"username": "admin", "password": "s3cur3!"}
+  ]
+}`,
+        "parse.js": `// Level 12: JSON Parsing
+// This script should parse data.json and extract the admin password
+
+// We need the file system module to read the file
+const fs = require('fs');
+
+// TODO: Step 1 - Read the data.json file
+// Hint: Use fs.readFileSync('data.json', 'utf8')
+// Write your code here:
+
+
+// TODO: Step 2 - Parse the JSON data
+// Hint: Use JSON.parse() on the file contents
+// Write your code here:
+
+
+// TODO: Step 3 - Find the admin user in the users array
+// Hint: Use find() or a loop to find the user with username "admin"
+// Write your code here:
+
+
+// TODO: Step 4 - Extract and display the admin password
+// Write your code here:
+
+
+// Don't modify below this line
+// ============================
+// This is just a hint of what the data structure looks like:
+/*
+{
+  "users": [
+    {"username": "guest", "password": "guest123"},
+    {"username": "admin", "password": "s3cur3!"}
+  ]
+}
+*/
+`,
+        "hint.txt": "Create a script to parse the JSON and extract the admin password.",
+      },
+    }
+  }
+
+  // Update the file system for level 13 with a better template and more materials
+  if (level === 13) {
+    fileSystems[13] = {
+      "/": {
+        "readme.txt": "Level 13: Extract patterns using regular expressions.",
+        "text.txt": `Contact our admin at admin@example.com or call 555-123-4567 for support.
+Please don't hesitate to reach out with any questions!`,
+        "regex.js": `// Level 13: Regular Expressions
+// This script should extract an email address and phone number from text.txt
+
+// We need the file system module to read the file
+const fs = require('fs');
+
+// TODO: Step 1 - Read the text.txt file
+// Hint: Use fs.readFileSync('text.txt', 'utf8')
+// Write your code here:
+
+
+// TODO: Step 2 - Create a regular expression pattern for email addresses
+// Hint: Email addresses typically follow the pattern: something@domain.com
+// Write your code here:
+
+
+// TODO: Step 3 - Use the pattern to find the email address in the text
+// Hint: Use the match() or exec() method with your regex pattern
+// Write your code here:
+
+
+// TODO: Step 4 - Create a regular expression pattern for phone numbers
+// Hint: The phone number format is 555-123-4567
+// Write your code here:
+
+
+// TODO: Step 5 - Use the pattern to find the phone number in the text
+// Write your code here:
+
+
+// TODO: Step 6 - Display the extracted email and phone number
+// Write your code here:
+
+
+// Don't modify below this line
+// ============================
+// Example of how to use regular expressions:
+// const emailPattern = /\\w+@\\w+\\.\\w+/;
+// const phonePattern = /\\d{3}-\\d{3}-\\d{4}/;
+// const text = "Contact: user@example.com, 123-456-7890";
+// const emailMatch = text.match(emailPattern);
+// const phoneMatch = text.match(phonePattern);
+// console.log("Email:", emailMatch[0]);
+// console.log("Phone:", phoneMatch[0]);
+`,
+        "regex-guide.txt": `REGULAR EXPRESSIONS QUICK GUIDE
+
+Regular expressions (regex) are patterns used to match character combinations in strings.
+
+BASIC PATTERNS:
+- \\d - Matches any digit (0-9)
+- \\w - Matches any word character (a-z, A-Z, 0-9, _)
+- \\s - Matches any whitespace character (space, tab, newline)
+- . - Matches any character except newline
+- ^ - Matches the beginning of a string
+- $ - Matches the end of a string
+
+QUANTIFIERS:
+- * - Matches 0 or more occurrences
+- + - Matches 1 or more occurrences
+- ? - Matches 0 or 1 occurrence
+- {n} - Matches exactly n occurrences
+- {n,} - Matches n or more occurrences
+- {n,m} - Matches between n and m occurrences
+
+COMMON PATTERNS:
+- Email: /\\w+@\\w+\\.\\w+/
+- Phone (US): /\\d{3}-\\d{3}-\\d{4}/
+
+METHODS:
+- string.match(regex) - Returns an array of matches
+- regex.exec(string) - Returns the next match
+- regex.test(string) - Returns true if a match is found
+
+EXAMPLE:
+const text = "Contact: user@example.com, 123-456-7890";
+const emailPattern = /\\w+@\\w+\\.\\w+/;
+const phonePattern = /\\d{3}-\\d{3}-\\d{4}/;
+const emailMatch = text.match(emailPattern);
+const phoneMatch = text.match(phonePattern);
+console.log("Email:", emailMatch[0]); // Email: user@example.com
+console.log("Phone:", phoneMatch[0]); // Phone: 123-456-7890
+`,
+        "hint.txt": "Create a script that uses regular expressions to extract the email and phone number.",
+      },
+    }
+  }
+
+  console.log(
+    `[LEVEL-FS] File system for level ${level}:`,
+    fileSystems[level] || { "/": { "readme.txt": "This level has not been implemented yet." } },
+  )
 
   // Return the file system for the level or a default if not found
   return (
