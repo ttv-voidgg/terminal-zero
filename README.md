@@ -1,3 +1,15 @@
+---
+title: Terminal Zero *(In Development)*
+description: An educational game in development, designed to teach players the basics of using the command line through interactive, mission-based gameplay.
+date: 2025-05-6
+image: https://terminal0.eejay.me/banner.png 
+category: Development
+author:
+ name: Juan Carlos de Borja
+ role: Developer and 3D artist
+ avatar: https://github.com/ttv-voidgg.png  
+---
+
 # 🧠 Terminal Zero *(In Development)*
 
 **Terminal Zero** is an educational game in development, designed to teach players the basics of using the command line through interactive, mission-based gameplay. It aims to help beginners build confidence and fluency with real-world terminal commands in a fun, engaging environment.
